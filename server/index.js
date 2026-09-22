@@ -84,7 +84,7 @@ function parseTextFormatting(text) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<b>$1</b>')
     .replace(/_([^_]+)_/g, '<i>$1</i>')
-    .replace(/~([^~]+)~/g, '<del>$1</del>')
+    .replace(/~([a-zA-Z0-9][^~\n]*?)~/g, '<del>$1</del>')
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
