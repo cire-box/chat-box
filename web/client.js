@@ -2017,41 +2017,37 @@ messageInput.addEventListener('paste', (e) => {
 
 const formatToolbar = document.getElementById('format-toolbar');
 if (formatToolbar) {
+  formatToolbar.addEventListener('mousedown', (e) => e.preventDefault());
+
   formatToolbar.addEventListener('click', (e) => {
     const btn = e.target.closest('.format-btn');
     if (!btn) return;
-    
+
     const format = btn.dataset.format;
     const sel = window.getSelection();
     const selectedText = sel.toString();
-    
+
     let tag = '';
-    let placeholder = '';
     switch (format) {
       case 'bold':
         tag = 'b';
-        placeholder = 'negrito';
         break;
       case 'italic':
         tag = 'i';
-        placeholder = 'itálico';
         break;
       case 'strike':
         tag = 'del';
-        placeholder = 'tachado';
         break;
       case 'code':
         tag = 'code';
-        placeholder = 'código';
         break;
     }
-    
+
     if (!tag) return;
-    
-    messageInput.focus();
-    const content = selectedText || placeholder;
+
+    const content = selectedText || 'texto';
     const html = `<${tag}>${content}</${tag}>`;
-    
+
     if (sel.rangeCount) {
       const range = sel.getRangeAt(0);
       range.deleteContents();
@@ -2065,7 +2061,7 @@ if (formatToolbar) {
       sel.removeAllRanges();
       sel.addRange(range);
     }
-    
+
     messageInput.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }

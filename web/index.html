@@ -117,6 +117,32 @@
             <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
+        <div id="emoji-picker" class="emoji-picker hidden">
+          <div class="emoji-search">
+            <input type="text" id="emoji-search-input" placeholder="Buscar emoji...">
+          </div>
+          <div class="emoji-tabs">
+            <button class="emoji-tab active" data-category="recent">🕐</button>
+            <button class="emoji-tab" data-category="smileys">😀</button>
+            <button class="emoji-tab" data-category="animals">🐶</button>
+            <button class="emoji-tab" data-category="food">🍔</button>
+            <button class="emoji-tab" data-category="activities">⚽</button>
+            <button class="emoji-tab" data-category="travel">🚗</button>
+            <button class="emoji-tab" data-category="objects">💡</button>
+            <button class="emoji-tab" data-category="symbols">❤️</button>
+          </div>
+          <div class="emoji-category-names">
+            <span class="category-name" data-category="recent">Recentes</span>
+            <span class="category-name" data-category="smileys">Sorrisos</span>
+            <span class="category-name" data-category="animals">Animais</span>
+            <span class="category-name" data-category="food">Comida</span>
+            <span class="category-name" data-category="activities">Atividades</span>
+            <span class="category-name" data-category="travel">Viagem</span>
+            <span class="category-name" data-category="objects">Objetos</span>
+            <span class="category-name" data-category="symbols">Símbolos</span>
+          </div>
+          <div id="emoji-grid" class="emoji-grid"></div>
+        </div>
         <div id="audio-recording" class="audio-recording hidden">
           <span class="recording-indicator"></span>
           <span class="recording-time" id="recording-time">0:00</span>
@@ -165,33 +191,6 @@
       <div id="search-results" class="search-results"></div>
       <button id="close-search" class="close-btn">Fechar</button>
     </div>
-  </div>
-
-  <div id="emoji-picker" class="emoji-picker hidden">
-    <div class="emoji-search">
-      <input type="text" id="emoji-search-input" placeholder="Buscar emoji...">
-    </div>
-    <div class="emoji-tabs">
-      <button class="emoji-tab active" data-category="recent">🕐</button>
-      <button class="emoji-tab" data-category="smileys">😀</button>
-      <button class="emoji-tab" data-category="animals">🐶</button>
-      <button class="emoji-tab" data-category="food">🍔</button>
-      <button class="emoji-tab" data-category="activities">⚽</button>
-      <button class="emoji-tab" data-category="travel">🚗</button>
-      <button class="emoji-tab" data-category="objects">💡</button>
-      <button class="emoji-tab" data-category="symbols">❤️</button>
-    </div>
-    <div class="emoji-category-names">
-      <span class="category-name" data-category="recent">Recentes</span>
-      <span class="category-name" data-category="smileys">Sorrisos</span>
-      <span class="category-name" data-category="animals">Animais</span>
-      <span class="category-name" data-category="food">Comida</span>
-      <span class="category-name" data-category="activities">Atividades</span>
-      <span class="category-name" data-category="travel">Viagem</span>
-      <span class="category-name" data-category="objects">Objetos</span>
-      <span class="category-name" data-category="symbols">Símbolos</span>
-    </div>
-    <div id="emoji-grid" class="emoji-grid"></div>
   </div>
 
   <div id="incoming-call-modal" class="modal hidden">
