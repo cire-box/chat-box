@@ -28,6 +28,59 @@ let recordingStartTime = null;
 let recordingInterval = null;
 const deviceNameElement = document.getElementById('device-name');
 const searchBtn = document.getElementById('search-btn');
+
+function getInputText() {
+  return messageInput.textContent;
+}
+
+function setInputText(text) {
+  messageInput.textContent = text;
+}
+
+function insertAtCursor(html) {
+  messageInput.focus();
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const frag = document.createRange().createContextualFragment(html);
+  const lastNode = frag.lastChild;
+  range.insertNode(frag);
+  if (lastNode) {
+    range.setStartAfter(lastNode);
+    range.setEndAfter(lastNode);
+  }
+  sel.removeAllRanges();
+  sel.addRange(range);
+  messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function htmlToMarkdown(el) {
+  if (!el) return '';
+  let result = '';
+  el.childNodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const tag = node.tagName.toLowerCase();
+      const inner = htmlToMarkdown(node);
+      if (tag === 'b' || tag === 'strong') {
+        result += `*${inner}*`;
+      } else if (tag === 'i' || tag === 'em') {
+        result += `_${inner}_`;
+      } else if (tag === 'del' || tag === 's') {
+        result += `~${inner}~`;
+      } else if (tag === 'code') {
+        result += `\`${inner}\``;
+      } else if (tag === 'br') {
+        result += '\n';
+      } else {
+        result += inner;
+      }
+    }
+  });
+  return result;
+}
 const clearBtn = document.getElementById('clear-btn');
 const discoverModal = document.getElementById('discover-modal');
 const serverListDiv = document.getElementById('server-list');
@@ -116,12 +169,7 @@ function renderEmojis(category) {
 }
 
 function insertEmoji(emoji) {
-  const start = messageInput.selectionStart;
-  const end = messageInput.selectionEnd;
-  const text = messageInput.value;
-  messageInput.value = text.substring(0, start) + emoji + text.substring(end);
-  messageInput.focus();
-  messageInput.setSelectionRange(start + emoji.length, start + emoji.length);
+  insertAtCursor(emoji);
   emojiPicker.classList.add('hidden');
 }
 
@@ -1816,13 +1864,13 @@ function updateConnectionStatus(status) {
 }
 
 function enableChat() {
-  messageInput.disabled = false;
+  messageInput.contentEditable = 'true';
   sendBtn.disabled = false;
   messageInput.focus();
 }
 
 function disableChat() {
-  messageInput.disabled = true;
+  messageInput.contentEditable = 'false';
   sendBtn.disabled = true;
 }
 
@@ -1853,10 +1901,10 @@ sendBtn.addEventListener('click', () => {
 });
 
 function sendMessage() {
-  const text = messageInput.value.trim();
+  const text = htmlToMarkdown(messageInput).trim();
   if (text && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'message', text }));
-    messageInput.value = '';
+    messageInput.innerHTML = '';
     messageInput.style.height = 'auto';
   }
 }
@@ -1952,6 +2000,12 @@ messageInput.addEventListener('input', () => {
   checkForMention();
 });
 
+messageInput.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  document.execCommand('insertText', false, text);
+});
+
 const formatToolbar = document.getElementById('format-toolbar');
 if (formatToolbar) {
   formatToolbar.addEventListener('click', (e) => {
@@ -1959,30 +2013,51 @@ if (formatToolbar) {
     if (!btn) return;
     
     const format = btn.dataset.format;
-    const start = messageInput.selectionStart;
-    const end = messageInput.selectionEnd;
-    const text = messageInput.value;
-    const selectedText = text.substring(start, end);
+    const sel = window.getSelection();
+    const selectedText = sel.toString();
     
-    let wrapper = '';
+    let tag = '';
+    let placeholder = '';
     switch (format) {
       case 'bold':
-        wrapper = `*${selectedText}*`;
+        tag = 'b';
+        placeholder = 'negrito';
         break;
       case 'italic':
-        wrapper = `_${selectedText}_`;
+        tag = 'i';
+        placeholder = 'itálico';
         break;
       case 'strike':
-        wrapper = `~${selectedText}~`;
+        tag = 'del';
+        placeholder = 'tachado';
         break;
       case 'code':
-        wrapper = `\`${selectedText}\``;
+        tag = 'code';
+        placeholder = 'código';
         break;
     }
     
-    messageInput.value = text.substring(0, start) + wrapper + text.substring(end);
+    if (!tag) return;
+    
     messageInput.focus();
-    messageInput.setSelectionRange(start + 1, start + 1 + selectedText.length);
+    const content = selectedText || placeholder;
+    const html = `<${tag}>${content}</${tag}>`;
+    
+    if (sel.rangeCount) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const frag = document.createRange().createContextualFragment(html);
+      const lastNode = frag.lastChild;
+      range.insertNode(frag);
+      if (lastNode) {
+        range.setStartAfter(lastNode);
+        range.setEndAfter(lastNode);
+      }
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    
+    messageInput.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
 
@@ -2258,7 +2333,7 @@ let mentionSuppress = false;
 
 function checkForMention() {
   if (mentionSuppress) return;
-  const text = messageInput.value;
+  const text = messageInput.textContent;
   const atIndex = text.lastIndexOf('@');
 
   if (atIndex === -1 || (atIndex > 0 && text[atIndex - 1] !== ' ' && text[atIndex - 1] !== '\n')) {
@@ -2309,15 +2384,14 @@ function renderMentionList(q) {
 
 function insertMention(name) {
   mentionSuppress = true;
-  const text = messageInput.value;
+  const text = messageInput.textContent;
   const before = text.substring(0, mentionStartPos);
   const after = text.substring(mentionStartPos + mentionQuery.length + 1).replace(/^ /, '');
-  messageInput.value = before + `@${name}` + after;
-  const newPos = before.length + name.length + 1;
-  messageInput.setSelectionRange(newPos, newPos);
+  messageInput.textContent = before + `@${name} ` + after;
   messageInput.focus();
   hideMentionDropdown();
   mentionSuppress = false;
+  messageInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function hideMentionDropdown() {

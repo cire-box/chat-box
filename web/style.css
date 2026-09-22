@@ -888,7 +888,6 @@ body.keyboard-open .messages-container {
   outline: none;
   padding: 12px 16px;
   font-size: 1rem;
-  resize: none;
   font-family: inherit;
   background: white;
   max-height: 120px;
@@ -899,14 +898,44 @@ body.keyboard-open .messages-container {
   box-sizing: border-box;
   transition: box-shadow 0.2s ease;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 #message-input:focus {
   box-shadow: inset 0 0 0 2px #00a884;
 }
 
-#message-input::placeholder {
+#message-input:empty::before {
+  content: attr(data-placeholder);
   color: #667781;
+  pointer-events: none;
+}
+
+#message-input b, #message-input strong {
+  font-weight: 700;
+}
+
+#message-input i, #message-input em {
+  font-style: italic;
+}
+
+#message-input del, #message-input s {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+#message-input code {
+  font-family: 'Courier New', Courier, monospace;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+#message-input[contenteditable="false"] {
+  background: #e0e0e0;
+  cursor: not-allowed;
 }
 
 /* Send Button */
@@ -1031,7 +1060,7 @@ body.keyboard-open .messages-container {
   min-width: 0;
 }
 
-.input-wrapper textarea {
+.input-wrapper .message-input {
   width: 100%;
   padding: 10px 16px;
   border: none;
@@ -1039,7 +1068,6 @@ body.keyboard-open .messages-container {
   font-size: 16px;
   background: white;
   outline: none;
-  resize: none;
   min-height: 40px;
   max-height: 120px;
   font-family: inherit;
@@ -1048,11 +1076,11 @@ body.keyboard-open .messages-container {
   appearance: none;
 }
 
-.input-wrapper textarea:focus {
+.input-wrapper .message-input:focus {
   box-shadow: inset 0 0 0 2px var(--wa-green);
 }
 
-.input-wrapper textarea:disabled {
+.input-wrapper .message-input[contenteditable="false"] {
   background: #e0e0e0;
 }
 
@@ -1321,7 +1349,7 @@ body.keyboard-open .messages-container {
     padding: 8px 12px;
   }
   
-  .input-wrapper input {
+  .input-wrapper .message-input {
     padding: 8px 14px;
     font-size: 0.9rem;
   }
