@@ -18,7 +18,6 @@
 
 html {
   height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -27,7 +26,6 @@ body {
   color: var(--wa-text-primary);
   height: 100%;
   height: 100dvh;
-  overflow: hidden;
   position: fixed;
   top: 0;
   left: 0;
