@@ -1127,11 +1127,20 @@ const EMOJI_KEYWORDS = {
   '🇰🇷': ['coreia', 'korea', 'bandeira']
 };
 
-function toggleEmojiPicker() {
+function toggleEmojiPicker(e) {
+  if (e) e.stopPropagation();
   emojiPicker.classList.toggle('hidden');
 }
 
 emojiBtn.addEventListener('click', toggleEmojiPicker);
+
+emojiPicker.addEventListener('click', (e) => e.stopPropagation());
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && emojiPicker && !emojiPicker.classList.contains('hidden')) {
+    emojiPicker.classList.add('hidden');
+  }
+});
 
 document.querySelectorAll('.emoji-tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -2404,6 +2413,9 @@ document.addEventListener('click', (e) => {
   if (mentionDropdown && !mentionDropdown.classList.contains('hidden') && !mentionDropdown.contains(e.target)) {
     hideMentionDropdown();
     messageInput.focus();
+  }
+  if (emojiPicker && !emojiPicker.classList.contains('hidden') && !emojiPicker.contains(e.target) && e.target !== emojiBtn && !emojiBtn.contains(e.target)) {
+    emojiPicker.classList.add('hidden');
   }
 });
 
