@@ -152,6 +152,28 @@ function serveMedia(req, res, messageId, field) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
+const REPLY_TEXT_MAX = 140;
+
+// Citação de uma resposta, montada a partir da mensagem original no banco
+// (não do que o cliente mandou). {} se não há resposta ou a original sumiu.
+function buildReply(replyToId) {
+  if (typeof replyToId !== 'string' || !replyToId) return {};
+  const source = db.getReplySource(replyToId);
+  if (!source) return {};
+
+  let text = (source.content || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  if (source.has_image) text = '📷 Foto';
+  else if (source.has_audio) text = '🎤 Áudio';
+  else if (source.has_file) text = `📎 ${source.file_name || 'Arquivo'}`;
+  if (text.length > REPLY_TEXT_MAX) text = text.slice(0, REPLY_TEXT_MAX - 1) + '…';
+
+  return {
+    reply_to: source.id,
+    reply_to_name: source.device_name,
+    reply_to_text: text
+  };
+}
+
 const server = http.createServer((req, res) => {
   const mediaMatch = MEDIA_ROUTE.exec(req.url);
   if (mediaMatch) {
@@ -212,7 +234,8 @@ wss.on('connection', (ws, req) => {
             .map(m => ({
               ...m,
               is_own: m.device_id === clientId ? 1 : 0,
-              name_color: getNameColor(m.device_name)
+              name_color: getNameColor(m.device_name),
+              reply_to_color: m.reply_to_name ? getNameColor(m.reply_to_name) : null
             }))
             .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
           
@@ -230,7 +253,10 @@ wss.on('connection', (ws, req) => {
           
           const formattedText = parseTextFormatting(msg.text);
           const nameColor = getNameColor(clientName);
+          const reply = buildReply(msg.reply_to);
           const message = {
+            ...reply,
+            reply_to_color: reply.reply_to_name ? getNameColor(reply.reply_to_name) : null,
             id: Date.now().toString(36) + Math.random().toString(36).substr(2),
             device_id: clientId,
             device_name: clientName,

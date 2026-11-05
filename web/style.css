@@ -544,6 +544,99 @@ body.keyboard-open .messages-container {
   display: block;
 }
 
+.message-menu.open-up {
+  top: auto;
+  bottom: 30px;
+}
+
+/* Citação dentro de uma resposta */
+.message-reply {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #128c7e;
+  border-radius: 5px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.message-reply-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.message-reply-text {
+  font-size: 0.85rem;
+  color: var(--wa-text-secondary, #667781);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Barra "respondendo a" acima do campo de mensagem */
+.reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border-left: 4px solid #128c7e;
+  border-radius: 8px;
+  padding: 6px 8px 6px 10px;
+}
+
+.reply-bar.hidden {
+  display: none;
+}
+
+.reply-bar-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-bar-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.reply-bar-text {
+  font-size: 0.85rem;
+  color: var(--wa-text-secondary, #667781);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-bar-close {
+  background: none;
+  border: none;
+  color: #667781;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+}
+
+.reply-bar-close:hover {
+  background: #f0f2f5;
+}
+
+/* Aviso "Copiado!" na mensagem */
+.message.copy-feedback::after {
+  content: attr(data-copy-feedback);
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .message-menu-item {
   display: flex;
   align-items: center;

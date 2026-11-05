@@ -56,7 +56,18 @@ function initDatabase() {
   try {
     db.exec('ALTER TABLE messages ADD COLUMN file_size INTEGER');
   } catch (e) {}
-  
+  // Resposta: id da mensagem citada + cópia do autor/trecho no momento da
+  // resposta, para a citação continuar legível se a original sair do histórico.
+  try {
+    db.exec('ALTER TABLE messages ADD COLUMN reply_to TEXT');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE messages ADD COLUMN reply_to_name TEXT');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE messages ADD COLUMN reply_to_text TEXT');
+  } catch (e) {}
+
   console.log('[DB] Banco de dados inicializado');
 }
 
@@ -78,8 +89,9 @@ function setDeviceOffline(id) {
 
 function saveMessage(message) {
   const stmt = db.prepare(`
-    INSERT INTO messages (id, device_id, device_name, content, image, audio, file, file_name, file_type, file_size, is_own, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO messages (id, device_id, device_name, content, image, audio, file, file_name, file_type, file_size, is_own, timestamp,
+                          reply_to, reply_to_name, reply_to_text)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   stmt.run(
@@ -94,8 +106,22 @@ function saveMessage(message) {
     message.file_type || null,
     message.file_size || null,
     message.is_own ? 1 : 0,
-    message.timestamp
+    message.timestamp,
+    message.reply_to || null,
+    message.reply_to_name || null,
+    message.reply_to_text || null
   );
+}
+
+// Dados mínimos da mensagem citada numa resposta, ou undefined.
+function getReplySource(messageId) {
+  return db.prepare(`
+    SELECT id, device_name, content, file_name,
+           image IS NOT NULL AS has_image,
+           audio IS NOT NULL AS has_audio,
+           file IS NOT NULL AS has_file
+    FROM messages WHERE id = ?
+  `).get(messageId);
 }
 
 function getMessages(deviceId, limit = 100) {
@@ -129,6 +155,7 @@ function getAllMessages(limit = 100) {
   return db.prepare(`
     SELECT id, device_id, device_name, content, file_name, file_type, file_size,
            is_own, is_favorite, is_pinned, timestamp,
+           reply_to, reply_to_name, reply_to_text,
            image IS NOT NULL AS has_image,
            audio IS NOT NULL AS has_audio,
            file IS NOT NULL AS has_file
@@ -208,6 +235,7 @@ module.exports = {
   getOrCreateDevice,
   setDeviceOffline,
   saveMessage,
+  getReplySource,
   getMessages,
   getAllMessages,
   getMessageMedia,

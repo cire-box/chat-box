@@ -1618,7 +1618,16 @@ function addMessage(msg, { fromHistory = false } = {}) {
     const nameColor = msg.name_color || '#128c7e';
     content += `<div class="message-name" style="color: ${nameColor}">${escapeHtml(msg.device_name || msg.name)}</div>`;
   }
-  
+
+  if (msg.reply_to) {
+    content += `
+      <div class="message-reply" style="border-left-color: ${msg.reply_to_color || '#128c7e'}">
+        <div class="message-reply-name" style="color: ${msg.reply_to_color || '#128c7e'}">${escapeHtml(msg.reply_to_name || '')}</div>
+        <div class="message-reply-text">${escapeHtml(msg.reply_to_text || '')}</div>
+      </div>
+    `;
+  }
+
   // Mensagens ao vivo trazem a mídia inline; as do histórico só has_*.
   const mediaSrc = (field) => msg[field] || (msg[`has_${field}`] ? `${mediaBaseUrl}/media/${msg.id}/${field}` : null);
   const imageSrc = mediaSrc('image');
@@ -1694,7 +1703,15 @@ function addMessage(msg, { fromHistory = false } = {}) {
       }
     });
   });
-  
+
+  const replyEl = div.querySelector('.message-reply');
+  if (replyEl) {
+    replyEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      scrollToMessage(msg.reply_to);
+    });
+  }
+
   msg.element = div;
   allMessages.push(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -1775,9 +1792,30 @@ function toggleMessageMenu(messageId, event) {
     menu.remove();
   });
   
+  const replyItem = document.createElement('div');
+  replyItem.className = 'message-menu-item reply';
+  replyItem.innerHTML = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg><span>Responder</span>`;
+  replyItem.addEventListener('click', () => {
+    startReply(msg);
+    menu.remove();
+  });
+  menu.appendChild(replyItem);
+
+  const textToCopy = getMessagePlainText(msg);
+  if (textToCopy) {
+    const copyItem = document.createElement('div');
+    copyItem.className = 'message-menu-item copy';
+    copyItem.innerHTML = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg><span>Copiar texto</span>`;
+    copyItem.addEventListener('click', () => {
+      copyToClipboard(textToCopy, msgElement);
+      menu.remove();
+    });
+    menu.appendChild(copyItem);
+  }
+
   menu.appendChild(favItem);
   menu.appendChild(pinItem);
-  
+
   if (isOwnMsg) {
     const deleteItem = document.createElement('div');
     deleteItem.className = 'message-menu-item delete';
@@ -1791,7 +1829,12 @@ function toggleMessageMenu(messageId, event) {
   
   msgElement.appendChild(menu);
   currentMessageMenu = menu;
-  
+
+  // Perto do fim da conversa o menu sairia da área visível: abre para cima.
+  if (menu.getBoundingClientRect().bottom > messagesDiv.getBoundingClientRect().bottom) {
+    menu.classList.add('open-up');
+  }
+
   setTimeout(() => {
     document.addEventListener('click', closeMessageMenu);
   }, 100);
@@ -1806,6 +1849,53 @@ function closeMessageMenu(e) {
     document.removeEventListener('click', closeMessageMenu);
   }
 }
+
+function hasMedia(msg) {
+  return !!(msg.image || msg.audio || msg.file || msg.has_image || msg.has_audio || msg.has_file);
+}
+
+// Texto visível da mensagem, sem formatação. Vazio para mídia (o "texto"
+// dela é só o nome do arquivo ou "[Áudio]").
+function getMessagePlainText(msg) {
+  if (hasMedia(msg) || !msg.element) return '';
+  const textEl = msg.element.querySelector('.message-text');
+  return textEl ? textEl.innerText.trim() : '';
+}
+
+const replyBar = document.getElementById('reply-bar');
+const replyBarName = document.getElementById('reply-bar-name');
+const replyBarText = document.getElementById('reply-bar-text');
+let replyingTo = null;
+
+function startReply(msg) {
+  replyingTo = msg.id;
+  let preview = getMessagePlainText(msg);
+  if (!preview) {
+    if (msg.image || msg.has_image) preview = '📷 Foto';
+    else if (msg.audio || msg.has_audio) preview = '🎤 Áudio';
+    else if (msg.file || msg.has_file) preview = `📎 ${msg.file_name || 'Arquivo'}`;
+  }
+  replyBarName.textContent = msg.device_name || msg.name || '';
+  replyBarName.style.color = msg.name_color || '#128c7e';
+  replyBar.style.borderLeftColor = msg.name_color || '#128c7e';
+  replyBarText.textContent = preview;
+  replyBar.classList.remove('hidden');
+  messageInput.focus();
+}
+
+function cancelReply() {
+  replyingTo = null;
+  replyBar.classList.add('hidden');
+}
+
+// Campos de resposta para anexar a uma mensagem enviada; encerra a resposta.
+function takeReply() {
+  const payload = replyingTo ? { reply_to: replyingTo } : {};
+  cancelReply();
+  return payload;
+}
+
+document.getElementById('reply-bar-close').addEventListener('click', cancelReply);
 
 function formatDateDivider(date) {
   const today = new Date();
@@ -1932,7 +2022,7 @@ sendBtn.addEventListener('click', () => {
 function sendMessage() {
   const text = htmlToMarkdown(messageInput).trim();
   if (text && ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'message', text }));
+    ws.send(JSON.stringify({ type: 'message', text, ...takeReply() }));
     messageInput.innerHTML = '';
     messageInput.style.height = 'auto';
   }
@@ -1960,6 +2050,10 @@ messageInput.addEventListener('keydown', (e) => {
       items[idx].classList.add('selected');
       return;
     }
+  }
+  if (e.key === 'Escape' && replyingTo) {
+    cancelReply();
+    return;
   }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -2000,6 +2094,12 @@ function fallbackCopy(text, element) {
 function showCopyFeedback(element, message) {
   element.title = message;
   setTimeout(() => element.title = '', 2000);
+  // Em mensagem, mostra um aviso visível (title não aparece no celular).
+  if (element.classList.contains('message')) {
+    element.dataset.copyFeedback = message;
+    element.classList.add('copy-feedback');
+    setTimeout(() => element.classList.remove('copy-feedback'), 1500);
+  }
 }
 
 messagesDiv.addEventListener('click', (e) => {
@@ -2127,7 +2227,8 @@ fileInput.addEventListener('change', (e) => {
         text: displayText,
         file_name: file.name,
         file_size: file.size,
-        file_type: fileType
+        file_type: fileType,
+        ...takeReply()
       };
       
       if (fileType === 'image') {
@@ -2164,7 +2265,8 @@ audioBtn.addEventListener('click', async () => {
           ws.send(JSON.stringify({ 
             type: 'message', 
             text: '[Áudio]',
-            audio: reader.result 
+            audio: reader.result,
+            ...takeReply()
           }));
         }
       };
