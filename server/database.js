@@ -123,11 +123,15 @@ function clearConversation(deviceId) {
   db.prepare('DELETE FROM messages WHERE device_id = ?').run(deviceId);
 }
 
+// Últimas `limit` mensagens, em ordem cronológica.
 function getAllMessages(limit = 100) {
   return db.prepare(`
-    SELECT * FROM messages 
+    SELECT * FROM (
+      SELECT * FROM messages
+      ORDER BY timestamp DESC
+      LIMIT ?
+    )
     ORDER BY timestamp ASC
-    LIMIT ?
   `).all(limit);
 }
 
