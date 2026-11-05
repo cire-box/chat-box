@@ -88,7 +88,77 @@ function parseTextFormatting(text) {
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
+const MEDIA_ROUTE = /^\/media\/([A-Za-z0-9]+)\/(image|audio|file)$/;
+const INLINE_MEDIA_TYPE = /^(image\/(png|jpeg|gif|webp|bmp|avif)|audio\/[\w.+-]+)$/i;
+
+// Serve a mídia de uma mensagem (guardada como data URL) como binário, para o
+// navegador baixar sob demanda e cachear. O id da mensagem nunca muda de
+// conteúdo, então o cache pode ser permanente.
+function serveMedia(req, res, messageId, field) {
+  const dataUrl = db.getMessageMedia(messageId, field);
+  const parsed = dataUrl && /^data:([^,]*?)(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!parsed) {
+    res.writeHead(404);
+    res.end('404 Not Found');
+    return;
+  }
+
+  const [, meta, isBase64, payload] = parsed;
+  let body;
+  try {
+    body = isBase64 ? Buffer.from(payload, 'base64') : Buffer.from(decodeURIComponent(payload));
+  } catch (e) {
+    res.writeHead(500);
+    res.end('500 Internal Server Error');
+    return;
+  }
+  const mime = meta.split(';')[0].trim();
+
+  // O tipo vem do upload do usuário e é servido na mesma origem do app:
+  // só imagem/áudio conhecidos vão inline; o resto vira download, e o
+  // sandbox impede que um HTML/SVG aberto direto execute script.
+  const inline = field !== 'file' && INLINE_MEDIA_TYPE.test(mime);
+  const headers = {
+    'Content-Type': inline ? mime : 'application/octet-stream',
+    'Cache-Control': 'private, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; sandbox",
+    'Accept-Ranges': 'bytes'
+  };
+  if (!inline) headers['Content-Disposition'] = 'attachment';
+
+  // Range: o Safari exige para tocar <audio>, e permite avançar o áudio.
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+  if (range && (range[1] || range[2])) {
+    const size = body.length;
+    let start = range[1] ? parseInt(range[1], 10) : size - parseInt(range[2], 10);
+    let end = range[1] && range[2] ? parseInt(range[2], 10) : size - 1;
+    start = Math.max(0, start);
+    end = Math.min(end, size - 1);
+    if (start > end) {
+      res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+      res.end();
+      return;
+    }
+    headers['Content-Range'] = `bytes ${start}-${end}/${size}`;
+    headers['Content-Length'] = end - start + 1;
+    res.writeHead(206, headers);
+    res.end(req.method === 'HEAD' ? undefined : body.subarray(start, end + 1));
+    return;
+  }
+
+  headers['Content-Length'] = body.length;
+  res.writeHead(200, headers);
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
 const server = http.createServer((req, res) => {
+  const mediaMatch = MEDIA_ROUTE.exec(req.url);
+  if (mediaMatch) {
+    serveMedia(req, res, mediaMatch[1], mediaMatch[2]);
+    return;
+  }
+
   let filePath = req.url === '/' ? '/index.html' : req.url;
   filePath = path.join(__dirname, '..', 'web', filePath);
 

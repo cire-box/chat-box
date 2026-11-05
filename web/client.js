@@ -1184,6 +1184,7 @@ emojiSearchInput.addEventListener('input', (e) => {
 });
 
 let allMessages = [];
+let mediaBaseUrl = '';
 let lastReadMessageId = null;
 let peerConnection = null;
 let messageAudio = null;
@@ -1285,6 +1286,8 @@ function connect(serverUrl = null) {
   
   console.log('Conectando ao WebSocket:', url);
   updateConnectionStatus('connecting');
+  // Mídias do histórico vêm por HTTP do mesmo servidor do WebSocket.
+  mediaBaseUrl = url.replace(/^ws(s?):\/\//, 'http$1://').replace(/\/+$/, '');
   ws = new WebSocket(url);
 
   ws.onopen = () => {
@@ -1606,31 +1609,37 @@ function addMessage(msg) {
     content += `<div class="message-name" style="color: ${nameColor}">${escapeHtml(msg.device_name || msg.name)}</div>`;
   }
   
+  // Mensagens ao vivo trazem a mídia inline; as do histórico só has_*.
+  const mediaSrc = (field) => msg[field] || (msg[`has_${field}`] ? `${mediaBaseUrl}/media/${msg.id}/${field}` : null);
+  const imageSrc = mediaSrc('image');
+  const audioSrc = mediaSrc('audio');
+  const fileSrc = mediaSrc('file');
+
   if (msg.content || msg.text) {
-    const hasFile = msg.file && !msg.image && !msg.audio;
+    const hasFile = fileSrc && !imageSrc && !audioSrc;
     if (!hasFile) {
       content += `<div class="message-text">${msg.content || msg.text}</div>`;
     }
   }
-  
-  if (msg.image) {
-    content += `<img src="${msg.image}" class="message-image" alt="imagem">`;
+
+  if (imageSrc) {
+    content += `<img src="${imageSrc}" class="message-image" alt="imagem">`;
   }
-  
-  if (msg.audio) {
+
+  if (audioSrc) {
     content += `
       <div class="message-audio">
-        <audio controls src="${msg.audio}"></audio>
+        <audio controls src="${audioSrc}"></audio>
       </div>
     `;
   }
-  
-  if (msg.file && !msg.image && !msg.audio) {
+
+  if (fileSrc && !imageSrc && !audioSrc) {
     const fileIcon = getFileIcon(msg.file_type);
     const fileSize = formatFileSize(msg.file_size);
     const fileName = msg.file_name || 'Arquivo';
     content += `
-      <div class="message-file" ondblclick="downloadFile('${msg.file}', '${fileName}')">
+      <div class="message-file" ondblclick="downloadFile('${fileSrc}', '${fileName}')">
         <div class="file-icon-left">${fileIcon}</div>
         <div class="file-details">
           <div class="file-name-row">

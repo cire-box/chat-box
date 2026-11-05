@@ -123,16 +123,31 @@ function clearConversation(deviceId) {
   db.prepare('DELETE FROM messages WHERE device_id = ?').run(deviceId);
 }
 
-// Últimas `limit` mensagens, em ordem cronológica.
+// Últimas `limit` mensagens, em ordem cronológica. Não traz o conteúdo das
+// mídias (base64, pode somar MBs) — só has_* — o cliente busca via /media.
 function getAllMessages(limit = 100) {
   return db.prepare(`
-    SELECT * FROM (
+    SELECT id, device_id, device_name, content, file_name, file_type, file_size,
+           is_own, is_favorite, is_pinned, timestamp,
+           image IS NOT NULL AS has_image,
+           audio IS NOT NULL AS has_audio,
+           file IS NOT NULL AS has_file
+    FROM (
       SELECT * FROM messages
       ORDER BY timestamp DESC
       LIMIT ?
     )
     ORDER BY timestamp ASC
   `).all(limit);
+}
+
+const MEDIA_FIELDS = new Set(['image', 'audio', 'file']);
+
+// Data URL guardada no campo de mídia da mensagem, ou null.
+function getMessageMedia(messageId, field) {
+  if (!MEDIA_FIELDS.has(field)) return null;
+  const row = db.prepare(`SELECT ${field} AS data FROM messages WHERE id = ?`).get(messageId);
+  return row ? row.data : null;
 }
 
 function clearAllMessages() {
@@ -195,6 +210,7 @@ module.exports = {
   saveMessage,
   getMessages,
   getAllMessages,
+  getMessageMedia,
   getAllConversations,
   clearConversation,
   clearAllMessages,
