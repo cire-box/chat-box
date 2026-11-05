@@ -1,4 +1,5 @@
-const CACHE_NAME = 'chatbox-v1';
+// Trocar a versão ao mudar a estratégia de cache: o activate apaga as antigas.
+const CACHE_NAME = 'chatbox-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -30,24 +31,27 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Rede primeiro, cache só como fallback offline: assim atualizações do app
+// chegam aos aparelhos. Mídias (/media) ficam no cache HTTP do navegador.
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/media/')) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request)
+    fetch(request)
       .then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
+        if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME)
             .then((cache) => {
-              cache.put(event.request, responseToCache);
+              cache.put(request, responseToCache);
             });
-          return response;
-        });
+        }
+        return response;
       })
+      .catch(() => caches.match(request))
   );
 });
