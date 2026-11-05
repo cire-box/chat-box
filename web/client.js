@@ -1336,10 +1336,19 @@ function handleMessage(msg) {
       if (deviceNameElement && msg.device_name) {
         deviceNameElement.textContent = msg.device_name;
       }
-        if (msg.messages && msg.messages.length > 0) {
-        msg.messages.forEach(addMessage);
-        renderPinnedSection();
+      // O init chega de novo a cada reconexão (ex.: celular derruba o
+      // WebSocket ao sair da janela). Ele é o histórico completo, então
+      // substitui o que está na tela — sem som, que é só para mensagem nova.
+      messagesDiv.innerHTML = '';
+      allMessages = [];
+      lastMessageDate = null;
+      if (msg.messages && msg.messages.length > 0) {
+        msg.messages.forEach(m => addMessage(m, { fromHistory: true }));
+        markMessagesAsRead();
+      } else {
+        chatPlaceholder.classList.remove('hidden');
       }
+      renderPinnedSection();
       break;
       
     case 'message':
@@ -1561,7 +1570,8 @@ function deleteMessage(messageId) {
 
 let lastMessageDate = null;
 
-function addMessage(msg) {
+function addMessage(msg, { fromHistory = false } = {}) {
+  if (msg.id && allMessages.some(m => m.id === msg.id)) return;
   chatPlaceholder.classList.add('hidden');
   messagesDiv.classList.remove('hidden');
   chatInputArea.classList.remove('hidden');
@@ -1689,7 +1699,8 @@ function addMessage(msg) {
   allMessages.push(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
   
-  if (!isOwn) {
+  // No histórico, o recibo de leitura sai uma vez só (markMessagesAsRead).
+  if (!isOwn && !fromHistory) {
     playMessageSound();
     sendReadReceipt(msg.id);
   }
